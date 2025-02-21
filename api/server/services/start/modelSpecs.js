@@ -22,7 +22,7 @@ function processModelSpecs(endpoints, _modelSpecs) {
 
   for (const spec of list) {
     if (EModelEndpoint[spec.preset.endpoint] && spec.preset.endpoint !== EModelEndpoint.custom) {
-      modelSpecs.push(spec);
+      modelSpecs.push({ ...spec });
       continue;
     } else if (spec.preset.endpoint === EModelEndpoint.custom) {
       logger.warn(

@@ -31,6 +31,7 @@ const MenuItem: FC<MenuItemProps> = ({
 }) => {
   const { endpoint } = spec.preset;
   const [isDialogOpen, setDialogOpen] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
   const { getExpiry } = useUserKey(endpoint ?? '');
   const localize = useLocalize();
   const expiryTime = getExpiry() ?? '';
@@ -69,17 +70,37 @@ const MenuItem: FC<MenuItemProps> = ({
           }
         }}
       >
-        <div className="flex grow items-center justify-between gap-2">
-          <div>
+        <div className="flex w-full items-center justify-between gap-2">
+          <div className="min-w-0 flex-grow">
             <div className="flex items-center gap-2">
               {showIconInMenu && <SpecIcon currentSpec={spec} endpointsConfig={endpointsConfig} />}
               <div>
-                {title}
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{title}</span>
+                  {spec.badgeIcon && (
+                    <div
+                      className="relative flex items-center"
+                      onMouseEnter={() => setShowTooltip(true)}
+                      onMouseLeave={() => setShowTooltip(false)}
+                    >
+                      <img
+                        src={spec.badgeIcon}
+                        alt={spec.badgeTooltip ?? ''}
+                        className="h-4 w-4 object-contain"
+                      />
+                      {showTooltip && spec.badgeTooltip && (
+                        <div className="absolute -top-8 z-10 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white shadow-lg">
+                          {spec.badgeTooltip}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="text-token-text-tertiary">{description}</div>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-shrink-0 items-center gap-2">
             {userProvidesKey ? (
               <div className="text-token-text-primary" key={`set-key-${endpoint}`}>
                 <button

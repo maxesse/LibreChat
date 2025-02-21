@@ -8,6 +8,7 @@ const { findUser, createUser, updateUser } = require('~/models/userMethods');
 const { hashToken } = require('~/server/utils/crypto');
 const { isEnabled } = require('~/server/utils');
 const { logger } = require('~/config');
+const { Client } = require('@microsoft/microsoft-graph-client');
 
 let crypto;
 try {
@@ -15,6 +16,24 @@ try {
 } catch (err) {
   logger.error('[openidStrategy] crypto support is disabled!', err);
 }
+/**
+ * Fetches user's group memberships using Microsoft Graph API
+ * @param {import('@microsoft/microsoft-graph-client').Client} graphClient
+ * @returns {Promise<string[]>} Array of group IDs
+ */
+const fetchUserGroups = async (graphClient) => {
+  try {
+    const groups = await graphClient.api('/me/memberOf').get();
+    // Store raw group IDs without any JSON stringification
+    return groups.value.map((group) => group.id.toString());
+  } catch (error) {
+    logger.warn('[openidStrategy] Failed to fetch user groups:', error);
+    if (error.statusCode) {
+      logger.warn(`[openidStrategy] Status code: ${error.statusCode}, Error code: ${error.code}`);
+    }
+    return [];
+  }
+};
 
 /**
  * Downloads an image from a URL using an access token.
@@ -105,6 +124,19 @@ function convertToUsername(input, defaultValue = '') {
   return defaultValue;
 }
 
+/**
+ * Creates an authenticated Microsoft Graph client using an access token
+ * @param {string} accessToken
+ * @returns {import('@microsoft/microsoft-graph-client').Client}
+ */
+const getGraphClient = (accessToken) => {
+  return Client.init({
+    authProvider: (done) => {
+      done(null, accessToken);
+    },
+  });
+};
+
 async function setupOpenId() {
   try {
     if (process.env.PROXY) {
@@ -140,13 +172,13 @@ async function setupOpenId() {
       {
         client,
         params: {
-          scope: process.env.OPENID_SCOPE,
+          scope: `${process.env.OPENID_SCOPE} GroupMember.Read.All`,
         },
       },
-      async (tokenset, userinfo, done) => {
+      async function verify(tokenset, userinfo, done) {
         try {
           logger.info(`[openidStrategy] verify login openidId: ${userinfo.sub}`);
-          logger.debug('[openidStrategy] very login tokenset and userinfo', { tokenset, userinfo });
+          logger.debug('[openidStrategy] verify login tokenset and userinfo', { tokenset, userinfo });
 
           let user = await findUser({ openidId: userinfo.sub });
           logger.info(
@@ -203,21 +235,37 @@ async function setupOpenId() {
             );
           }
 
-          if (!user) {
-            user = {
-              provider: 'openid',
-              openidId: userinfo.sub,
-              username,
-              email: userinfo.email || '',
-              emailVerified: userinfo.email_verified || false,
-              name: fullName,
-            };
-            user = await createUser(user, true, true);
-          } else {
-            user.provider = 'openid';
-            user.openidId = userinfo.sub;
-            user.username = username;
-            user.name = fullName;
+          // Get user groups from Microsoft Graph
+          try {
+            const graphClient = getGraphClient(tokenset.access_token);
+            const groups = await fetchUserGroups(graphClient);
+
+            if (!user) {
+              user = {
+                provider: 'openid',
+                openidId: userinfo.sub,
+                username,
+                email: userinfo.email || '',
+                emailVerified: userinfo.email_verified || false,
+                name: fullName,
+                entraGroups: groups,
+              };
+              user = await createUser(user, true, true);
+            } else {
+              user.provider = 'openid';
+              user.openidId = userinfo.sub;
+              user.username = username;
+              user.name = fullName;
+              user.entraGroups = groups;
+            }
+          } catch (graphError) {
+            logger.warn('[openidStrategy] Failed to fetch Microsoft Graph data:', graphError);
+            if (graphError.statusCode) {
+              logger.warn(
+                `[openidStrategy] Graph Error Status: ${graphError.statusCode}, Code: ${graphError.code}`,
+              );
+            }
+            // Continue with sign-in even if Graph call fails
           }
 
           if (userinfo.picture && !user.avatar?.includes('manual=true')) {
@@ -246,7 +294,7 @@ async function setupOpenId() {
           user = await updateUser(user._id, user);
 
           logger.info(
-            `[openidStrategy] login success openidId: ${user.openidId} | email: ${user.email} | username: ${user.username} `,
+            `[openidStrategy] login success openidId: ${user.openidId} | email: ${user.email} | username: ${user.username}`,
             {
               user: {
                 openidId: user.openidId,

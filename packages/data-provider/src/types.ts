@@ -118,6 +118,7 @@ export type TUser = {
   backupCodes?: TBackupCode[];
   createdAt: string;
   updatedAt: string;
+  entraGroups?: string[];
 };
 
 export type TGetConversationsResponse = {

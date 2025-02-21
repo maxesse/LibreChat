@@ -190,6 +190,11 @@ export const getAIEndpoints = (): Promise<t.TEndpointsConfig> => {
   return request.get(endpoints.aiEndpoints());
 };
 
+
+export const getModelSpecs = (): Promise<t.TEndpointsConfig> => {
+  return request.get(endpoints.modelSpecs());
+};
+
 export const getModels = async (): Promise<t.TModelsConfig> => {
   return request.get(endpoints.models());
 };

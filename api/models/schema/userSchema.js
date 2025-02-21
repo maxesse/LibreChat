@@ -29,6 +29,7 @@ const { SystemRoles } = require('librechat-data-provider');
  * @property {Date} [expiresAt] - Optional expiration date of the file
  * @property {Date} [createdAt] - Date when the user was created (added by timestamps)
  * @property {Date} [updatedAt] - Date when the user was last updated (added by timestamps)
+ * @property {Array.<string>} [entraGroups=[]] - List of Entra ID group IDs the user belongs to
  */
 
 /** @type {MongooseSchema<MongoSession>} */
@@ -143,8 +144,11 @@ const userSchema = mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    entraGroups: {
+      type: [String],
+      default: [],
+    },
   },
-
   { timestamps: true },
 );
 

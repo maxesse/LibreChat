@@ -73,6 +73,8 @@ export const deletePreset = () => '/api/presets/delete';
 
 export const aiEndpoints = () => '/api/endpoints';
 
+export const modelSpecs = () => '/api/endpoints/modelspecs';
+
 export const endpointsConfigOverride = () => '/api/endpoints/config/override';
 
 export const models = () => '/api/models';

@@ -23,6 +23,24 @@ export const useGetEndpointsQuery = <TData = t.TEndpointsConfig>(
   );
 };
 
+export const useGetModelSpecsQuery = <TData = t.TEndpointsConfig>(
+  config?: UseQueryOptions<t.TEndpointsConfig, unknown, TData>,
+): QueryObserverResult<TData> => {
+  const queriesEnabled = useRecoilValue<boolean>(store.queriesEnabled);
+  return useQuery<t.TEndpointsConfig, unknown, TData>(
+    [QueryKeys.modelSpecs],
+    () => dataService.getModelSpecs(),
+    {
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      ...config,
+      enabled: (config?.enabled ?? true) === true && queriesEnabled,
+    },
+  );
+};
+
 export const useGetStartupConfig = (
   config?: UseQueryOptions<t.TStartupConfig>,
 ): QueryObserverResult<t.TStartupConfig> => {

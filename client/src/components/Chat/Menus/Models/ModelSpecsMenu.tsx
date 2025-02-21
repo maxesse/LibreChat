@@ -2,12 +2,17 @@ import { useRecoilValue } from 'recoil';
 import { useMemo, useCallback, useRef } from 'react';
 import { Content, Portal, Root } from '@radix-ui/react-popover';
 import { EModelEndpoint, isAssistantsEndpoint } from 'librechat-data-provider';
-import type { TModelSpec, TConversation, TEndpointsConfig } from 'librechat-data-provider';
+import type {
+  TModelSpec,
+  TConversation,
+  TEndpointsConfig,
+  TSpecsConfig,
+} from 'librechat-data-provider';
 import type { KeyboardEvent } from 'react';
 import { useChatContext, useAssistantsMapContext } from '~/Providers';
 import { useDefaultConvo, useNewConvo, useLocalize } from '~/hooks';
 import { getConvoSwitchLogic, getModelSpecIconURL } from '~/utils';
-import { useGetEndpointsQuery } from '~/data-provider';
+import { useGetEndpointsQuery, useGetModelSpecsQuery } from '~/data-provider/Endpoints/queries';
 import MenuButton from './MenuButton';
 import ModelSpecs from './ModelSpecs';
 import store from '~/store';
@@ -17,10 +22,23 @@ export default function ModelSpecsMenu({ modelSpecs }: { modelSpecs?: TModelSpec
   const { newConversation } = useNewConvo();
 
   const localize = useLocalize();
-  const { data: endpointsConfig = {} as TEndpointsConfig } = useGetEndpointsQuery();
+  const { data: endpointsConfig } = useGetEndpointsQuery();
+  const { data: modelSpecsConfig, isLoading } = useGetModelSpecsQuery();
   const modularChat = useRecoilValue(store.modularChat);
   const getDefaultConversation = useDefaultConvo();
   const assistantMap = useAssistantsMapContext();
+
+  const specsToDisplay = useMemo(() => {
+    const specs = modelSpecsConfig?.modelSpecs as TSpecsConfig | undefined;
+    if (isLoading || !specs?.list) {
+      return [];
+    }
+    return specs.list;
+  }, [modelSpecsConfig, isLoading]);
+
+  const selected = useMemo(() => {
+    return specsToDisplay.find((spec) => spec.name === conversation?.spec);
+  }, [specsToDisplay, conversation?.spec]);
 
   const onSelectSpec = (spec: TModelSpec) => {
     const { preset } = spec;
@@ -64,7 +82,7 @@ export default function ModelSpecsMenu({ modelSpecs }: { modelSpecs?: TModelSpec
         preset: template,
       });
 
-      /* We don't reset the latest message, only when changing settings mid-converstion */
+      /* We don't reset the latest message, only when changing settings mid-conversation */
       newConversation({
         template: currentConvo,
         preset,
@@ -80,14 +98,6 @@ export default function ModelSpecsMenu({ modelSpecs }: { modelSpecs?: TModelSpec
       keepAddedConvos: isModular,
     });
   };
-
-  const selected = useMemo(() => {
-    const spec = modelSpecs?.find((spec) => spec.name === conversation?.spec);
-    if (!spec) {
-      return undefined;
-    }
-    return spec;
-  }, [modelSpecs, conversation?.spec]);
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -132,7 +142,7 @@ export default function ModelSpecsMenu({ modelSpecs }: { modelSpecs?: TModelSpec
         endpointsConfig={endpointsConfig}
       />
       <Portal>
-        {modelSpecs && modelSpecs.length && (
+        {!isLoading && specsToDisplay.length > 0 && (
           <div
             style={{
               position: 'fixed',
@@ -154,10 +164,10 @@ export default function ModelSpecsMenu({ modelSpecs }: { modelSpecs?: TModelSpec
               className="models-scrollbar mt-2 max-h-[65vh] min-w-[340px] max-w-xs overflow-y-auto rounded-lg border border-gray-100 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-700 dark:text-white lg:max-h-[75vh]"
             >
               <ModelSpecs
-                specs={modelSpecs}
+                specs={specsToDisplay}
                 selected={selected}
                 setSelected={onSelectSpec}
-                endpointsConfig={endpointsConfig}
+                endpointsConfig={endpointsConfig || {}}
               />
             </Content>
           </div>
